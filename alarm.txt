@@ -1,0 +1,356 @@
+#define AlarmSND 6
+#include <Adafruit_LiquidCrystal.h>
+
+Adafruit_LiquidCrystal lcd_1(0);
+
+typedef struct Ora {
+  int ora, minut, secunda;
+};
+
+Ora* ceas = nullptr;
+Ora* alarma = nullptr;
+Ora* intrerupt = nullptr;
+
+//functii
+void initializare(Ora* ptr);
+void afisareOra(Ora *ptr);
+void setTime (Ora *ptr);
+void verificaOra (Ora *ptr,int sec);
+void setHour (Ora *ptr, int increment);
+void setMinute (Ora *ptr, int increment);
+void incrementHour (Ora *ptr);
+void decrementHour (Ora *ptr);
+void incrementMinute (Ora *ptr);
+void decrementMinute (Ora *ptr);
+void verificaMeniu();
+void verificaTimpA();
+void verificaTimpS();
+void intrerupere (Ora *ptr_intrerupt, Ora *ptr_salvare);
+Ora* saveTime(Ora *ptr);
+void verificaAlarma(Ora* ceas, Ora *alarma);
+
+//variabile
+const int buttonPin1 = 2;  // the number of the pushbutton pin
+int buttonState1 = 0;
+
+const int buttonPin2 = 4;  // the number of the pushbutton pin
+int buttonState2 = 0;
+
+const int buttonPin3 = 7;  // the number of the pushbutton pin
+int buttonState3 = 0;
+
+const int buttonPin4 = 8;  // the number of the pushbutton pin
+int buttonState4 = 0;
+
+const int buttonPin5 = 9; // The pin to which the button is connected
+bool buttonPressed = false; // Indicator to check if the button has been pressedt
+int buttonState5 = 0;
+
+int currentState = 0;
+int previousState = 0; // Variable for the previous state of the button
+unsigned long buttonStartTime = 0; // The time when the button was pressed
+unsigned long buttonPressDuration = 0; //The duration of the button press
+
+const int buttonPin6 = 1;  // the number of the pushbutton pin
+int buttonState6 = 0;
+bool buttonPressedS = false;
+unsigned long buttonStartTimeS = 0;
+unsigned long buttonPressDurationS = 0;
+  
+bool alarmaSetata = false;
+
+int menu = 1; 
+void setup()
+{
+  lcd_1.begin(16, 2);  
+  pinMode(buttonPin1, INPUT); //Set the mode of the pin to INPUT
+  pinMode(buttonPin2, INPUT);
+  pinMode(buttonPin3, INPUT);
+  pinMode(buttonPin4, INPUT);
+  pinMode(buttonPin5, INPUT);
+  pinMode(buttonPin6, INPUT);
+  ceas = new Ora;
+  alarma = new Ora;
+  intrerupt = new Ora;
+  initializare(ceas);
+  initializare(alarma);
+  
+}
+
+void loop()
+{
+  verificaMeniu();
+  if(alarmaSetata == true) 
+  	verificaAlarma(ceas, alarma); //If the alarm is set, it checks whether it needs to ring.
+  
+  if(alarmaSetata==true) //If the alarm is set
+  	verificaTimpS(); //It checks if button S has been pressed and its duration.
+  // If the alarm is not saved, button S has no interference
+}
+
+void initializare(Ora* ptr){
+  ptr->ora = 0;
+  ptr->minut = 0;
+  ptr->secunda = 0;
+}
+
+void setTime (Ora *ptr)
+{
+   // setare ora (+)
+    buttonState1 = digitalRead(buttonPin1); // Reads the state of the pin
+	if (buttonState1 == HIGH) { //button pressed
+    	incrementHour(ptr); 
+  }       
+  
+ //setare ora (-)
+    buttonState2 = digitalRead(buttonPin2);
+   	if (buttonState2 == HIGH) {
+		decrementHour(ptr);
+    }				
+  
+ // setare minut (+)
+ 	buttonState3 = digitalRead(buttonPin3);
+  	if (buttonState3 == HIGH) {
+		incrementMinute(ptr);
+    }		
+  
+   // setare minut (-)
+ 	buttonState4 = digitalRead(buttonPin4);
+  	if (buttonState4 == HIGH) {
+     	decrementMinute(ptr);
+    }
+  verificaOra(ptr,ptr->secunda); //apel funcție de verificare a orei
+}
+
+
+void afisareOra(Ora *ptr) { 
+// Display time in the format hh:mm:ss.
+
+  lcd_1.setCursor(0, 1); //The first columns of the LCD are used to display the time
+  if (ptr->ora < 10) {
+    lcd_1.print("0");  //A "false" 0 for aesthetics.
+  }
+  if (ptr->ora < 0) {
+    ptr->ora = 0;
+  }
+  lcd_1.print(ptr->ora);
+
+  lcd_1.setCursor(2, 1); //The LCD columns starting from the second one are used to display the minutes.
+  lcd_1.print(":");
+
+  if (ptr->minut < 10) {
+    lcd_1.print("0");
+  }
+  if (ptr->minut < 0) {
+    ptr->minut = 0;
+  }
+  lcd_1.print(ptr->minut);
+ 
+  lcd_1.setCursor(5, 1); // The cursor is placed on the fifth column to display the seconds.
+  lcd_1.print(":");
+  
+  if (ptr->secunda <10)
+    lcd_1.print("0");
+
+  lcd_1.print(ptr->secunda);
+  
+}
+
+
+void verificaOra (Ora *ptr,int sec) //Checks if a field is valid.
+{
+  if (sec == 60) {
+  		ptr->secunda = 0;
+      	ptr->minut++;
+      	if(ptr->minut == 60)
+      	{
+        	ptr->minut=0;
+        	ptr->ora++;
+        	if(ptr->ora > 23)
+          		ptr->ora = 0; 
+      	} 
+	}
+}
+
+
+void setHour (Ora *ptr, int increment) {
+  ptr->ora += increment;
+  if (ptr->ora > 23) {
+    ptr->ora = 0;
+  } else if (ptr->ora < 0) {
+    ptr->ora = 0;
+  }
+}
+
+
+void setMinute (Ora *ptr, int increment) {
+  ptr->minut += increment;
+  if (ptr->minut > 60) {
+    ptr->minut = 0;
+  } else if (ptr->minut < 0) {
+    ptr->minut = 0;
+  }
+}
+
+
+void incrementHour (Ora *ptr) {
+  setHour(ptr,1);
+  ptr->secunda = 0; 
+}
+
+void decrementHour (Ora *ptr) {
+  setHour(ptr,-1);
+  ptr->secunda = 0; //pt estetic
+}
+
+
+void incrementMinute (Ora *ptr) {
+  setMinute(ptr,1);
+  ptr->secunda = 0; 
+}
+
+void decrementMinute (Ora *ptr) {
+  setMinute(ptr,-1);
+  ptr->secunda = 0; 
+}
+
+void verificaMeniu()
+{
+   
+  buttonState5 = digitalRead(buttonPin5); //The state of the button is read.
+  ceas = intrerupt; // The value of the clock before pressing the button is saved in the variable ceas
+  if (buttonState5 == HIGH && previousState == LOW) //pressed button
+  { 
+    delay(50);
+    currentState = 1 - currentState; // currentState-ul will be changed
+    lcd_1.clear();
+    if (currentState == 1)
+    {
+      //	lcd_1.clear();
+      	menu = 2; // Once pressed , change to the Alarm Menu
+     	lcd_1.clear();
+    }
+    else
+    {
+      //	lcd_1.clear();
+      	menu = 1; // Pressed again, change to the Clock Menu
+      	lcd_1.clear();
+    }  
+  }
+  
+ previousState = buttonState5; // Saves the current state of the button for comparison.
+     
+  switch (menu)
+  {
+    case 1: 	
+    		lcd_1.setCursor(0, 0);
+    		lcd_1.print("Ceasul-");
+    		afisareOra(ceas); 
+    		ceas->secunda++; 
+ 	     	setTime(ceas);
+    		delay(50);
+    break;
+    
+    case 2:
+    		intrerupere(ceas,intrerupt); //	Save the current time to prevent loss when modifying the menu.
+    		lcd_1.clear();
+    		lcd_1.print("Alarma-");
+    		afisareOra(alarma); 
+    		if(alarmaSetata == false) 
+    			setTime(alarma); 
+    		verificaTimpA();
+    		delay(500);    			
+    break;
+  }
+}
+
+void intrerupere (Ora *ptr_intrerupt, Ora *ptr_salvare) //Function that saves the time before changing the menu.
+{
+  ptr_intrerupt = ptr_salvare;
+}
+
+void verificaTimpA()
+{
+  int buttonState = digitalRead(buttonPin5); 
+  if (buttonState == HIGH && !buttonPressed) { 
+    buttonPressed = true; // butonul a fost apăsat
+    buttonStartTime = millis(); //Se înregistrează timpul curent
+  }
+
+ // delay(500);
+  //is the button not pressed anymore?
+  if (buttonState == LOW && buttonPressed) { 
+    buttonPressed = false; 
+    buttonPressDuration = millis() - buttonStartTime; //The duration of the button press by subtracting the current time.
+
+    //Checks if the duration of the button press is 3 seconds (3000 ms).
+    if (buttonPressDuration > 3000) {
+     	alarma = saveTime(alarma); //salvare alarmă
+      	menu = 1; //mutare meniu în "Ceas"
+      	lcd_1.clear();
+  		lcd_1.print("setat!"); //Explanatory message for easier understanding of the operation.
+    }
+  } 
+  buttonStartTime = 0; // Reset time
+}
+
+void verificaTimpS()
+{
+	int buttonStateS = digitalRead(buttonPin6); 
+  
+  	if (buttonStateS == HIGH && !buttonPressedS) {
+    	buttonPressedS = true;
+    	buttonStartTimeS = millis();
+  }
+
+  // Verifică dacă butonul a fost eliberat
+  	if (buttonStateS == LOW && buttonPressedS) {
+    buttonPressedS = false;
+    buttonPressDurationS = millis() - buttonStartTimeS;
+	  
+   	if (buttonPressDurationS > 2000) {
+     	noTone(AlarmSND); // Oprire sunet alarma
+     	lcd_1.clear();
+  		lcd_1.print("Alarma oprita!");
+     	delay(500);
+      	lcd_1.clear();
+    }
+    
+    if (buttonPressDurationS < 2000 && menu ==1 ) { //if the press time is less than 3 seconds
+     	alarma->secunda += 10; //The alarm is incremented by 10 seconds.
+      	noTone(AlarmSND); //stop the alarm
+      	verificaAlarma(ceas, alarma); 
+      	lcd_1.clear();	
+  		lcd_1.print("snooze!");
+      	delay(500);
+    }
+    
+    if (buttonPressDurationS > 3000 && menu == 2) {
+     	initializare(alarma);
+      	alarmaSetata = false;
+      	lcd_1.clear();
+  		lcd_1.print("Alarma stearsa!");
+      	delay(500);
+      	lcd_1.clear();
+    }
+  }
+}
+
+Ora* saveTime(Ora *ptr)
+{
+   	Ora* temp = new Ora;
+  	temp->ora = ptr->ora;
+  	temp->minut = ptr->minut;
+  	temp->secunda = ptr->secunda;
+	alarmaSetata = true;  
+  //delay(5000); 
+ 	lcd_1.noBlink(); // Disables the blinking effect.
+  	return temp;
+  
+}
+
+void verificaAlarma(Ora* ceas, Ora *alarma)
+{
+  if (ceas->ora == alarma->ora && ceas->minut == alarma->minut && ceas->secunda == alarma->secunda)
+    tone(AlarmSND, 1200);  
+}
